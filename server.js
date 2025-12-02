@@ -2,12 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
-const tripsRouter = require('./routes/trips');
 const path = require('path');
 
 const app = express();
 
-// Configuración de CORS más permisiva
+// Configuración de CORS
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -21,7 +20,6 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const PORT = process.env.PORT || 3000;
 const DB_NAME = process.env.DB_NAME;
 
-// Log para verificar configuración
 console.log('Configuración:');
 console.log('- Puerto:', PORT);
 console.log('- Base de datos:', DB_NAME);
@@ -29,7 +27,6 @@ console.log('- MongoDB URI configurado:', MONGODB_URI ? 'Sí' : 'No');
 
 if (!MONGODB_URI || !DB_NAME) {
   console.error('❌ Error: Por favor configura MONGODB_URI y DB_NAME en las variables de entorno');
-  // No hacer exit en Vercel, solo registrar el error
 }
 
 let cachedClient = null;
@@ -63,39 +60,220 @@ async function connectToDatabase() {
   return { client, db };
 }
 
-// Middleware para manejar la conexión a la base de datos
-app.use(async (req, res, next) => {
-  try {
-    const { db } = await connectToDatabase();
-    req.db = db;
-    next();
-  } catch (err) {
-    console.error('❌ Error conectando a MongoDB:', err);
-    res.status(500).json({ 
-      error: 'Error de conexión a la base de datos',
-      message: err.message 
-    });
-  }
-});
-
-// Rutas
+// Ruta principal
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 // Ruta de health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    database: cachedDb ? 'connected' : 'disconnected'
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    const { db } = await connectToDatabase();
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      database: 'disconnected',
+      message: err.message
+    });
+  }
 });
 
-// Usar el router de trips
-app.use('/api/trips', (req, res, next) => {
-  const router = tripsRouter(req.db);
-  router(req, res, next);
+// RUTAS DE TRIPS - Definidas directamente aquí
+app.get('/api/trips/1.1', async (req, res) => {
+  try {
+    const { db } = await connectToDatabase();
+    const collection = db.collection('trips');
+    
+    const pipeline = [
+      {
+        $group: {
+          _id: "$usertype",
+          total_Viajes: { $sum: 1 },
+          duracion_Promedio: { $avg: "$tripduration" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          usertype: "$_id",
+          total_Viajes: 1,
+          duracion_Promedio: 1
+        }
+      }
+    ];
+    
+    const result = await collection.aggregate(pipeline).toArray();
+    res.json(result);
+  } catch (err) {
+    console.error('Error en 1.1:', err);
+    res.status(500).json({ error: 'Error en la consulta 1.1', message: err.message });
+  }
+});
+
+app.get('/api/trips/1.2', async (req, res) => {
+  try {
+    const { db } = await connectToDatabase();
+    const collection = db.collection('trips');
+    const hourParam = req.query.hour !== undefined ? parseInt(req.query.hour, 10) : null;
+    
+    const pipeline = [
+      {
+        $addFields: {
+          hora: { $hour: "$start time" }
+        }
+      },
+      {
+        $group: {
+          _id: "$hora",
+          total_Viajes: { $sum: 1 },
+          duracion_Promedio: { $avg: "$tripduration" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          hora: "$_id",
+          total_Viajes: 1,
+          duracion_Promedio: 1
+        }
+      },
+      { $sort: { hora: 1 } }
+    ];
+
+    let rows = await collection.aggregate(pipeline).toArray();
+
+    if (hourParam !== null && !isNaN(hourParam)) {
+      rows = rows.filter(r => r.hora === hourParam);
+    }
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en 1.2:', err);
+    res.status(500).json({ error: 'Error en la consulta 1.2', message: err.message });
+  }
+});
+
+app.get('/api/trips/1.3', async (req, res) => {
+  try {
+    const { db } = await connectToDatabase();
+    const collection = db.collection('trips');
+    
+    const pipeline = [
+      {
+        $addFields: {
+          fecha: {
+            $dateTrunc: { date: "$start time", unit: "day" }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$fecha",
+          total_Viajes: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          fecha: "$_id",
+          total_Viajes: 1
+        }
+      },
+      { $sort: { fecha: 1 } }
+    ];
+
+    const result = await collection.aggregate(pipeline).toArray();
+    res.json(result);
+  } catch (err) {
+    console.error('Error en 1.3:', err);
+    res.status(500).json({ error: 'Error en la consulta 1.3', message: err.message });
+  }
+});
+
+app.get('/api/trips/1.4', async (req, res) => {
+  try {
+    const { db } = await connectToDatabase();
+    const collection = db.collection('trips');
+    const limit = req.query.limit ? Math.max(1, parseInt(req.query.limit, 10)) : 10;
+    
+    const pipeline = [
+      {
+        $group: {
+          _id: {
+            id: "$start station id",
+            nombre: "$start station name"
+          },
+          total_Salidas: { $sum: 1 },
+          duracion_Promedio: { $avg: "$tripduration" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          estacion_id: "$_id.id",
+          estacion_nombre: "$_id.nombre",
+          total_Salidas: 1,
+          duracion_Promedio: 1
+        }
+      },
+      { $sort: { total_Salidas: -1 } },
+      { $limit: limit }
+    ];
+
+    const result = await collection.aggregate(pipeline).toArray();
+    res.json(result);
+  } catch (err) {
+    console.error('Error en 1.4:', err);
+    res.status(500).json({ error: 'Error en la consulta 1.4', message: err.message });
+  }
+});
+
+app.get('/api/trips/1.5', async (req, res) => {
+  try {
+    const { db } = await connectToDatabase();
+    const collection = db.collection('trips');
+    const hourQ = req.query.hour !== undefined ? parseInt(req.query.hour, 10) : null;
+    const dayQ = req.query.day !== undefined ? parseInt(req.query.day, 10) : null;
+
+    const pipeline = [
+      {
+        $addFields: {
+          hora: { $hour: "$start time" },
+          dia_Semana: { $dayOfWeek: "$start time" }
+        }
+      },
+      {
+        $group: {
+          _id: { hora: "$hora", dia_Semana: "$dia_Semana" },
+          total_Viajes: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          hora: "$_id.hora",
+          dia_Semana: "$_id.dia_Semana",
+          total_Viajes: 1
+        }
+      },
+      { $sort: { total_Viajes: -1 } }
+    ];
+
+    let rows = await collection.aggregate(pipeline).toArray();
+
+    if (!isNaN(hourQ) && hourQ !== null) rows = rows.filter(r => r.hora === hourQ);
+    if (!isNaN(dayQ) && dayQ !== null) rows = rows.filter(r => r.dia_Semana === dayQ);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en 1.5:', err);
+    res.status(500).json({ error: 'Error en la consulta 1.5', message: err.message });
+  }
 });
 
 // Manejo de errores 404
