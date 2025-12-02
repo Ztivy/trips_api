@@ -43,18 +43,18 @@ async function connectToDatabase() {
 
   console.log('🔄 Conectando a MongoDB...');
   
-  // Configuración mejorada para evitar problemas de SSL
+  // Configuración compatible con Vercel
   const client = new MongoClient(MONGODB_URI, {
     maxPoolSize: 10,
     minPoolSize: 2,
     serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
     connectTimeoutMS: 10000,
-    // Opciones SSL/TLS mejoradas
+    // Deshabilitar validación estricta de SSL para Vercel
     tls: true,
-    tlsAllowInvalidCertificates: false,
-    tlsAllowInvalidHostnames: false,
-    // Retry writes para mayor confiabilidad
+    tlsAllowInvalidCertificates: true,
+    tlsAllowInvalidHostnames: true,
+    // Retry writes
     retryWrites: true,
     retryReads: true
   });
