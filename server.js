@@ -6,7 +6,6 @@ const path = require('path');
 
 const app = express();
 
-// Configuración de CORS
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -43,14 +42,32 @@ async function connectToDatabase() {
   }
 
   console.log('🔄 Conectando a MongoDB...');
+  
+  // Configuración mejorada para evitar problemas de SSL
   const client = new MongoClient(MONGODB_URI, {
     maxPoolSize: 10,
     minPoolSize: 2,
-    serverSelectionTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
+    connectTimeoutMS: 10000,
+    // Opciones SSL/TLS mejoradas
+    tls: true,
+    tlsAllowInvalidCertificates: false,
+    tlsAllowInvalidHostnames: false,
+    // Retry writes para mayor confiabilidad
+    retryWrites: true,
+    retryReads: true,
+    // Usar el nuevo engine de conexión
+    useNewUrlParser: true,
+    useUnifiedTopology: true
   });
 
   await client.connect();
+  
+  // Verificar la conexión
+  await client.db(DB_NAME).command({ ping: 1 });
+  console.log('✅ Ping a MongoDB exitoso');
+  
   const db = client.db(DB_NAME);
 
   cachedClient = client;
@@ -69,12 +86,16 @@ app.get('/', (req, res) => {
 app.get('/api/health', async (req, res) => {
   try {
     const { db } = await connectToDatabase();
+    // Verificar que podemos hacer una query simple
+    const result = await db.command({ ping: 1 });
     res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
-      database: 'connected'
+      database: 'connected',
+      ping: result
     });
   } catch (err) {
+    console.error('Health check error:', err);
     res.status(500).json({
       status: 'error',
       database: 'disconnected',
@@ -83,7 +104,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// RUTAS DE TRIPS - Definidas directamente aquí
+// 1.1 - Tipos de usuario
 app.get('/api/trips/1.1', async (req, res) => {
   try {
     const { db } = await connectToDatabase();
@@ -115,6 +136,7 @@ app.get('/api/trips/1.1', async (req, res) => {
   }
 });
 
+// 1.2 - Por hora
 app.get('/api/trips/1.2', async (req, res) => {
   try {
     const { db } = await connectToDatabase();
@@ -158,6 +180,7 @@ app.get('/api/trips/1.2', async (req, res) => {
   }
 });
 
+// 1.3 - Por día
 app.get('/api/trips/1.3', async (req, res) => {
   try {
     const { db } = await connectToDatabase();
@@ -195,6 +218,7 @@ app.get('/api/trips/1.3', async (req, res) => {
   }
 });
 
+// 1.4 - Estaciones
 app.get('/api/trips/1.4', async (req, res) => {
   try {
     const { db } = await connectToDatabase();
@@ -233,6 +257,7 @@ app.get('/api/trips/1.4', async (req, res) => {
   }
 });
 
+// 1.5 - Hora y día
 app.get('/api/trips/1.5', async (req, res) => {
   try {
     const { db } = await connectToDatabase();
@@ -298,5 +323,4 @@ if (process.env.VERCEL !== '1') {
   });
 }
 
-// Exportar para Vercel
 module.exports = app;
