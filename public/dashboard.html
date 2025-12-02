@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de Viajes</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        .wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            padding: 25px 30px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .nav-tabs {
+            background: white;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+        }
+
+        .nav-tabs button {
+            background: #ecf0f1;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #2c3e50;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .nav-tabs button:hover {
+            background: #d5dbdb;
+        }
+
+        .nav-tabs button.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .metric-box {
+            background: white;
+            padding: 20px;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .metric-box.alt {
+            border-left-color: #e74c3c;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #95a5a6;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .metric-info {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-weight: 600;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group label {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+
+        .control-group select,
+        .control-group input {
+            padding: 8px 12px;
+            border: 1px solid #dfe6e9;
+            border-radius: 3px;
+            font-size: 14px;
+            background: white;
+            min-width: 150px;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .chart-box {
+            position: relative;
+            height: 400px;
+            margin-top: 15px;
+        }
+
+        .data-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+
+        .data-table thead {
+            background: #f8f9fa;
+        }
+
+        .data-table th {
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .rank {
+            background: #3498db;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #95a5a6;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #c33;
+        }
+
+        @media (max-width: 768px) {
+            .wrapper {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+            }
+
+            .nav-tabs button {
+                width: 100%;
+            }
+
+            .chart-box {
+                height: 300px;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .control-group select,
+            .control-group input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <h1>Análisis de Viajes en Bicicleta</h1>
+            <p class="subtitle">Sistema de monitoreo y estadísticas</p>
+        </header>
+
+        <div class="nav-tabs">
+            <button class="active" onclick="changeTab(0)">Tipos de Usuario</button>
+            <button onclick="changeTab(1)">Por Hora</button>
+            <button onclick="changeTab(2)">Por Día</button>
+            <button onclick="changeTab(3)">Estaciones</button>
+            <button onclick="changeTab(4)">Hora y Día</button>
+        </div>
+
+        <!-- Tab 0: Tipos de Usuario -->
+        <div class="tab-content active" id="tab-0">
+            <div class="metrics" id="user-metrics"></div>
+            <div class="panel">
+                <h2>Distribución por Tipo de Usuario</h2>
+                <div class="chart-box">
+                    <canvas id="chart-users"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 1: Por Hora -->
+        <div class="tab-content" id="tab-1">
+            <div class="panel">
+                <h2>Viajes por Hora del Día</h2>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Filtrar por hora</label>
+                        <select id="filter-hour">
+                            <option value="">Todas las horas</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="loadHourData()">Aplicar</button>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chart-hours"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Por Día -->
+        <div class="tab-content" id="tab-2">
+            <div class="panel">
+                <h2>Viajes por Día</h2>
+                <div class="chart-box">
+                    <canvas id="chart-days"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Estaciones -->
+        <div class="tab-content" id="tab-3">
+            <div class="panel">
+                <h2>Estaciones con Más Salidas</h2>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Cantidad a mostrar</label>
+                        <select id="filter-limit">
+                            <option value="5">Top 5</option>
+                            <option value="10" selected>Top 10</option>
+                            <option value="15">Top 15</option>
+                            <option value="20">Top 20</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="loadStationsData()">Aplicar</button>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chart-stations"></canvas>
+                </div>
+                <table class="data-table" id="stations-table"></table>
+            </div>
+        </div>
+
+        <!-- Tab 4: Hora y Día -->
+        <div class="tab-content" id="tab-4">
+            <div class="panel">
+                <h2>Análisis por Hora y Día de la Semana</h2>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Hora</label>
+                        <select id="filter-hour-week">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Día</label>
+                        <select id="filter-day-week">
+                            <option value="">Todos</option>
+                            <option value="1">Domingo</option>
+                            <option value="2">Lunes</option>
+                            <option value="3">Martes</option>
+                            <option value="4">Miércoles</option>
+                            <option value="5">Jueves</option>
+                            <option value="6">Viernes</option>
+                            <option value="7">Sábado</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="loadHourDayData()">Aplicar</button>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chart-hourday"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CORRECCIÓN: Usar rutas relativas que funcionan tanto en local como en Vercel
+        const API_URL = '/api/trips';
+        let charts = {};
+
+        function changeTab(index) {
+            document.querySelectorAll('.nav-tabs button').forEach((btn, i) => {
+                btn.classList.toggle('active', i === index);
+            });
+            document.querySelectorAll('.tab-content').forEach((content, i) => {
+                content.classList.toggle('active', i === index);
+            });
+        }
+
+        async function getData(endpoint) {
+            try {
+                console.log('Fetching:', `${API_URL}${endpoint}`);
+                const res = await fetch(`${API_URL}${endpoint}`);
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+                const data = await res.json();
+                console.log('Data received:', data);
+                return data;
+            } catch (err) {
+                console.error('Error fetching data:', err);
+                showError(`Error al cargar datos: ${err.message}`);
+                return null;
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            document.querySelector('.wrapper').insertBefore(errorDiv, document.querySelector('.nav-tabs'));
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function destroyChart(id) {
+            if (charts[id]) {
+                charts[id].destroy();
+                delete charts[id];
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.round(seconds / 60);
+            return `${mins} min`;
+        }
+
+        function formatNum(num) {
+            return new Intl.NumberFormat('es-MX').format(Math.round(num));
+        }
+
+        // Cargar datos de tipos de usuario
+        async function loadUserData() {
+            const data = await getData('/1.1');
+            if (!data || data.length === 0) return;
+
+            const colors = ['#3498db', '#e74c3c'];
+            const metricsHtml = data.map((item, i) => `
+                <div class="metric-box ${i % 2 === 1 ? 'alt' : ''}">
+                    <div class="metric-label">${item.usertype}</div>
+                    <div class="metric-value">${formatNum(item.total_Viajes)}</div>
+                    <div class="metric-info">Promedio: ${formatTime(item.duracion_Promedio)}</div>
+                </div>
+            `).join('');
+            document.getElementById('user-metrics').innerHTML = metricsHtml;
+
+            destroyChart('users');
+            const ctx = document.getElementById('chart-users').getContext('2d');
+            charts['users'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.usertype),
+                    datasets: [{
+                        data: data.map(d => d.total_Viajes),
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 15, font: { size: 13 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Cargar datos por hora
+        async function loadHourData() {
+            const hour = document.getElementById('filter-hour').value;
+            const endpoint = hour ? `/1.2?hour=${hour}` : '/1.2';
+            const data = await getData(endpoint);
+            if (!data || data.length === 0) return;
+
+            destroyChart('hours');
+            const ctx = document.getElementById('chart-hours').getContext('2d');
+            charts['hours'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => `${d.hora}:00`),
+                    datasets: [{
+                        label: 'Viajes',
+                        data: data.map(d => d.total_Viajes),
+                        backgroundColor: '#3498db'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Cargar datos por día
+        async function loadDayData() {
+            const data = await getData('/1.3');
+            if (!data || data.length === 0) return;
+
+            destroyChart('days');
+            const ctx = document.getElementById('chart-days').getContext('2d');
+            charts['days'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => new Date(d.fecha).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })),
+                    datasets: [{
+                        label: 'Viajes',
+                        data: data.map(d => d.total_Viajes),
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Cargar datos de estaciones
+        async function loadStationsData() {
+            const limit = document.getElementById('filter-limit').value;
+            const data = await getData(`/1.4?limit=${limit}`);
+            if (!data || data.length === 0) {
+                console.log('No hay datos de estaciones');
+                return;
+            }
+
+            console.log('Datos de estaciones:', data);
+
+            destroyChart('stations');
+            const ctx = document.getElementById('chart-stations').getContext('2d');
+            charts['stations'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.estacion_nombre || 'Sin nombre'),
+                    datasets: [{
+                        label: 'Salidas',
+                        data: data.map(d => d.total_Salidas),
+                        backgroundColor: '#e74c3c'
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Tabla
+            const tableHtml = `
+                <thead>
+                    <tr>
+                        <th>Posición</th>
+                        <th>Estación</th>
+                        <th>Salidas</th>
+                        <th>Duración Promedio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.map((item, i) => `
+                        <tr>
+                            <td><span class="rank">#${i + 1}</span></td>
+                            <td>${item.estacion_nombre || 'Sin nombre'}</td>
+                            <td>${formatNum(item.total_Salidas)}</td>
+                            <td>${formatTime(item.duracion_Promedio)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            document.getElementById('stations-table').innerHTML = tableHtml;
+        }
+
+        // Cargar datos de hora y día
+        async function loadHourDayData() {
+            const hour = document.getElementById('filter-hour-week').value;
+            const day = document.getElementById('filter-day-week').value;
+            let endpoint = '/1.5';
+            const params = [];
+            if (hour) params.push(`hour=${hour}`);
+            if (day) params.push(`day=${day}`);
+            if (params.length) endpoint += '?' + params.join('&');
+
+            const data = await getData(endpoint);
+            if (!data || data.length === 0) return;
+
+            const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            
+            destroyChart('hourday');
+            const ctx = document.getElementById('chart-hourday').getContext('2d');
+            
+            if (day && hour) {
+                charts['hourday'] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Resultado'],
+                        datasets: [{
+                            label: 'Viajes',
+                            data: [data[0]?.total_Viajes || 0],
+                            backgroundColor: '#3498db'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            } else {
+                const grouped = {};
+                data.forEach(item => {
+                    const dayName = days[item.dia_Semana - 1];
+                    if (!grouped[dayName]) grouped[dayName] = 0;
+                    grouped[dayName] += item.total_Viajes;
+                });
+
+                charts['hourday'] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(grouped),
+                        datasets: [{
+                            label: 'Viajes',
+                            data: Object.values(grouped),
+                            backgroundColor: '#3498db'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+        }
+
+        // Inicializar filtros
+        function initFilters() {
+            const hourSelect = document.getElementById('filter-hour');
+            const hourWeekSelect = document.getElementById('filter-hour-week');
+            for (let i = 0; i < 24; i++) {
+                hourSelect.innerHTML += `<option value="${i}">${i}:00</option>`;
+                hourWeekSelect.innerHTML += `<option value="${i}">${i}:00</option>`;
+            }
+        }
+
+        // Cargar todo al inicio
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Página cargada, iniciando...');
+            initFilters();
+            loadUserData();
+            loadHourData();
+            loadDayData();
+            loadStationsData();
+            loadHourDayData();
+        });
+    </script>
+</body>
+</html>

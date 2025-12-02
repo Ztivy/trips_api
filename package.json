@@ -1,0 +1,31 @@
+{
+  "name": "trips_api",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "joi": "^18.0.2",
+    "mongodb": "^7.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ztivy/Regu_comp1.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ztivy/Regu_comp1/issues"
+  },
+  "homepage": "https://github.com/Ztivy/Regu_comp1#readme",
+  "description": ""
+}
