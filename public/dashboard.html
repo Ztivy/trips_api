@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análisis de Viajes</title>
+    <title>Análisis de Viajes - Debug</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
         * {
@@ -43,6 +43,40 @@
         .subtitle {
             color: #7f8c8d;
             font-size: 14px;
+        }
+
+        .debug-panel {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .debug-panel h3 {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+
+        .debug-log {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-left: 3px solid #ffc107;
+        }
+
+        .debug-log.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .debug-log.success {
+            border-left-color: #28a745;
+            background: #d4edda;
         }
 
         .nav-tabs {
@@ -170,12 +204,6 @@
             min-width: 150px;
         }
 
-        .control-group select:focus,
-        .control-group input:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-
         .btn {
             background: #3498db;
             color: white;
@@ -222,10 +250,6 @@
             font-size: 14px;
         }
 
-        .data-table tr:hover {
-            background: #f8f9fa;
-        }
-
         .rank {
             background: #3498db;
             color: white;
@@ -233,52 +257,6 @@
             border-radius: 3px;
             font-size: 12px;
             font-weight: 600;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #95a5a6;
-        }
-
-        .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-            border-left: 4px solid #c33;
-        }
-
-        @media (max-width: 768px) {
-            .wrapper {
-                padding: 10px;
-            }
-
-            h1 {
-                font-size: 22px;
-            }
-
-            .nav-tabs {
-                flex-direction: column;
-            }
-
-            .nav-tabs button {
-                width: 100%;
-            }
-
-            .chart-box {
-                height: 300px;
-            }
-
-            .controls {
-                flex-direction: column;
-            }
-
-            .control-group select,
-            .control-group input {
-                width: 100%;
-            }
         }
     </style>
 </head>
@@ -288,6 +266,12 @@
             <h1>Análisis de Viajes en Bicicleta</h1>
             <p class="subtitle">Sistema de monitoreo y estadísticas</p>
         </header>
+
+        <!-- Panel de Debug -->
+        <div class="debug-panel">
+            <h3>🔍 Panel de Diagnóstico</h3>
+            <div id="debug-logs"></div>
+        </div>
 
         <div class="nav-tabs">
             <button class="active" onclick="changeTab(0)">Tipos de Usuario</button>
@@ -394,9 +378,20 @@
     </div>
 
     <script>
-        // CORRECCIÓN: Usar rutas relativas que funcionan tanto en local como en Vercel
         const API_URL = '/api/trips';
         let charts = {};
+
+        // Sistema de logs para debug
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('debug-logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `debug-log ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
 
         function changeTab(index) {
             document.querySelectorAll('.nav-tabs button').forEach((btn, i) => {
@@ -408,28 +403,27 @@
         }
 
         async function getData(endpoint) {
+            const fullUrl = `${API_URL}${endpoint}`;
+            addLog(`📡 Solicitando: ${fullUrl}`, 'info');
+            
             try {
-                console.log('Fetching:', `${API_URL}${endpoint}`);
-                const res = await fetch(`${API_URL}${endpoint}`);
+                const res = await fetch(fullUrl);
+                addLog(`📥 Respuesta recibida: Status ${res.status}`, res.ok ? 'success' : 'error');
+                
                 if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
+                    const errorText = await res.text();
+                    addLog(`❌ Error HTTP ${res.status}: ${errorText}`, 'error');
+                    throw new Error(`HTTP error! status: ${res.status} - ${errorText}`);
                 }
+                
                 const data = await res.json();
-                console.log('Data received:', data);
+                addLog(`✅ Datos parseados correctamente: ${data.length} registros`, 'success');
                 return data;
             } catch (err) {
-                console.error('Error fetching data:', err);
-                showError(`Error al cargar datos: ${err.message}`);
+                addLog(`❌ Error: ${err.message}`, 'error');
+                alert(`Error al cargar datos: ${err.message}`);
                 return null;
             }
-        }
-
-        function showError(message) {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            errorDiv.textContent = message;
-            document.querySelector('.wrapper').insertBefore(errorDiv, document.querySelector('.nav-tabs'));
-            setTimeout(() => errorDiv.remove(), 5000);
         }
 
         function destroyChart(id) {
@@ -448,10 +442,13 @@
             return new Intl.NumberFormat('es-MX').format(Math.round(num));
         }
 
-        // Cargar datos de tipos de usuario
         async function loadUserData() {
+            addLog('Cargando datos de usuarios...', 'info');
             const data = await getData('/1.1');
-            if (!data || data.length === 0) return;
+            if (!data || data.length === 0) {
+                addLog('No se recibieron datos de usuarios', 'error');
+                return;
+            }
 
             const colors = ['#3498db', '#e74c3c'];
             const metricsHtml = data.map((item, i) => `
@@ -486,12 +483,13 @@
                     }
                 }
             });
+            addLog('Gráfica de usuarios creada', 'success');
         }
 
-        // Cargar datos por hora
         async function loadHourData() {
             const hour = document.getElementById('filter-hour').value;
             const endpoint = hour ? `/1.2?hour=${hour}` : '/1.2';
+            addLog(`Cargando datos por hora${hour ? ` (filtro: ${hour})` : ''}...`, 'info');
             const data = await getData(endpoint);
             if (!data || data.length === 0) return;
 
@@ -510,18 +508,15 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
                 }
             });
+            addLog('Gráfica por hora creada', 'success');
         }
 
-        // Cargar datos por día
         async function loadDayData() {
+            addLog('Cargando datos por día...', 'info');
             const data = await getData('/1.3');
             if (!data || data.length === 0) return;
 
@@ -543,26 +538,18 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
                 }
             });
+            addLog('Gráfica por día creada', 'success');
         }
 
-        // Cargar datos de estaciones
         async function loadStationsData() {
             const limit = document.getElementById('filter-limit').value;
+            addLog(`Cargando top ${limit} estaciones...`, 'info');
             const data = await getData(`/1.4?limit=${limit}`);
-            if (!data || data.length === 0) {
-                console.log('No hay datos de estaciones');
-                return;
-            }
-
-            console.log('Datos de estaciones:', data);
+            if (!data || data.length === 0) return;
 
             destroyChart('stations');
             const ctx = document.getElementById('chart-stations').getContext('2d');
@@ -580,16 +567,11 @@
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: { beginAtZero: true }
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true } }
                 }
             });
 
-            // Tabla
             const tableHtml = `
                 <thead>
                     <tr>
@@ -611,9 +593,9 @@
                 </tbody>
             `;
             document.getElementById('stations-table').innerHTML = tableHtml;
+            addLog('Gráfica de estaciones creada', 'success');
         }
 
-        // Cargar datos de hora y día
         async function loadHourDayData() {
             const hour = document.getElementById('filter-hour-week').value;
             const day = document.getElementById('filter-day-week').value;
@@ -623,6 +605,7 @@
             if (day) params.push(`day=${day}`);
             if (params.length) endpoint += '?' + params.join('&');
 
+            addLog(`Cargando datos hora/día${params.length ? ` (filtros: ${params.join(', ')})` : ''}...`, 'info');
             const data = await getData(endpoint);
             if (!data || data.length === 0) return;
 
@@ -675,9 +658,9 @@
                     }
                 });
             }
+            addLog('Gráfica hora/día creada', 'success');
         }
 
-        // Inicializar filtros
         function initFilters() {
             const hourSelect = document.getElementById('filter-hour');
             const hourWeekSelect = document.getElementById('filter-hour-week');
@@ -687,9 +670,22 @@
             }
         }
 
-        // Cargar todo al inicio
-        window.addEventListener('DOMContentLoaded', () => {
-            console.log('Página cargada, iniciando...');
+        // Verificar conectividad al cargar
+        window.addEventListener('DOMContentLoaded', async () => {
+            addLog('🚀 Página cargada, iniciando sistema...', 'info');
+            addLog(`🌐 URL Base: ${window.location.origin}`, 'info');
+            addLog(`📍 API URL: ${API_URL}`, 'info');
+            
+            // Test de conectividad
+            try {
+                addLog('🔍 Probando conectividad con /api/health...', 'info');
+                const healthCheck = await fetch('/api/health');
+                const healthData = await healthCheck.json();
+                addLog(`✅ Health check exitoso: ${JSON.stringify(healthData)}`, 'success');
+            } catch (err) {
+                addLog(`❌ Health check falló: ${err.message}`, 'error');
+            }
+            
             initFilters();
             loadUserData();
             loadHourData();
