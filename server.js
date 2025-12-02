@@ -56,10 +56,7 @@ async function connectToDatabase() {
     tlsAllowInvalidHostnames: false,
     // Retry writes para mayor confiabilidad
     retryWrites: true,
-    retryReads: true,
-    // Usar el nuevo engine de conexión
-    useNewUrlParser: true,
-    useUnifiedTopology: true
+    retryReads: true
   });
 
   await client.connect();
